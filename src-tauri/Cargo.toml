@@ -1,6 +1,6 @@
 [package]
 name = "modbus-slave-studio"
-version = "0.1.0"
+version = "1.0.0"
 description = "A simple Modbus TCP / RTU slave simulator"
 authors = ["MyModbusClient contributors"]
 edition = "2021"

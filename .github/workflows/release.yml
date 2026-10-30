@@ -1,0 +1,147 @@
+name: Build & Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-macos:
+    name: macOS universal
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build universal app
+        run: pnpm tauri build --target universal-apple-darwin --bundles app
+
+      - name: Package app
+        run: |
+          set -euo pipefail
+          APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/Modbus Slave Studio.app"
+          codesign --force --deep --sign - "$APP"
+          mkdir -p release
+          ditto -c -k --norsrc --keepParent "$APP" "release/Modbus-Slave-Studio-1.0.0-macOS-universal.zip"
+          ls -lh release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-universal
+          path: release/Modbus-Slave-Studio-1.0.0-macOS-universal.zip
+          if-no-files-found: error
+
+  build-windows:
+    name: Windows x64
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build NSIS installer
+        run: pnpm tauri build --bundles nsis
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-x64
+          path: src-tauri/target/release/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  release:
+    name: Publish GitHub release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build-macos, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: List release assets
+        run: ls -lh artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Modbus Slave Studio ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          body: |
+            ## Modbus Slave Studio ${{ github.ref_name }}
+
+            一个简单易用的 Modbus TCP / RTU 从机模拟器，使用 React + Rust（Tauri 2）开发。
+
+            ### 下载
+
+            - **macOS 通用版**（Apple Silicon + Intel）：`Modbus-Slave-Studio-1.0.0-macOS-universal.zip`
+            - **Windows x64**：NSIS `.exe` 安装包
+
+            ### 安装说明
+
+            - macOS 应用未签名、未公证。解压后如提示无法验证，请右键应用 → **打开**。
+            - Windows 安装包未签名。如出现 SmartScreen 提示，请选择「更多信息」→「仍要运行」。
+
+            ### 主要功能
+
+            - Modbus TCP 与 Modbus RTU（RS485 / 串口）
+            - 四个数据区各 100 点，支持功能码 01 / 02 / 03 / 04 / 05 / 06 / 0F / 10
+            - 跨寄存器变量：U16 / I16 / U32 / I32 / F32 / F64，可选多种字节序
+            - 寄存器 / 变量双视图，数值与 HEX 均可直接编辑
+            - 完整请求 / 响应 HEX 日志，成功绿色、失败红色并附带原因
+            - 配置导出 / 导入与本地自动保存
+
+            更多说明见 [README](https://github.com/davyxiaoxiao/MyModbusClient#readme)。
+          files: |
+            artifacts/*.zip
+            artifacts/*.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
