@@ -92,7 +92,7 @@
 - **macOS 通用版**（Apple Silicon + Intel）：`.zip`，解压后得到 `.app`
 - **Windows x64**：`.exe` 安装包
 
-> macOS 构建未使用开发者证书签名。首次打开如提示无法验证，请右键应用 → **打开**。
+> macOS 构建已做 **ad-hoc 签名**，但未使用 Developer ID 公证。首次打开如提示无法验证，请右键应用 → **打开**。
 >
 > Windows 安装时如出现 SmartScreen 提示，可选择「更多信息」→「仍要运行」。
 
@@ -305,7 +305,7 @@ src-tauri/src/
 - 变量合并格式目前包含 U16 / I16 / U32 / I32 / F32 / F64，暂不支持 64 位整数、字符串或 Modbus ASCII。
 - RTU 界面固定使用 8 个数据位。
 - 模拟器没有 TLS、认证或访问控制，请只在可信的本机/局域网使用。
-- macOS / Windows 发布包都未签名；macOS 未公证，Windows 可能触发 SmartScreen 提示。
+- macOS 发布包为 **ad-hoc 签名、未公证**，Windows 安装包未签名；首次打开可能触发 Gatekeeper / SmartScreen 提示。
 
 ---
 

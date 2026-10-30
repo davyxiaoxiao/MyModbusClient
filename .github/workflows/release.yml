@@ -48,7 +48,9 @@ jobs:
         run: |
           set -euo pipefail
           APP="src-tauri/target/universal-apple-darwin/release/bundle/macos/Modbus Slave Studio.app"
+          xattr -cr "$APP"
           codesign --force --deep --sign - "$APP"
+          codesign --verify --deep --strict "$APP"
           mkdir -p release
           ditto -c -k --norsrc --keepParent "$APP" "release/Modbus-Slave-Studio-1.0.0-macOS-universal.zip"
           ls -lh release
@@ -127,7 +129,7 @@ jobs:
 
             ### 安装说明
 
-            - macOS 应用未签名、未公证。解压后如提示无法验证，请右键应用 → **打开**。
+            - macOS 应用已进行 **ad-hoc 签名**，但未使用 Developer ID 公证。解压后如提示无法验证，请右键应用 → **打开**。
             - Windows 安装包未签名。如出现 SmartScreen 提示，请选择「更多信息」→「仍要运行」。
 
             ### 主要功能
